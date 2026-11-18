@@ -1,0 +1,73 @@
+
+name: NEXT01 Production Deployment
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: next01-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build and Deploy NEXT01
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build production application
+        run: npm run build
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.HOSTINGER_SSH_KEY }}
+          SSH_HOST: ${{ secrets.HOSTINGER_HOST }}
+          SSH_PORT: ${{ secrets.HOSTINGER_PORT }}
+          SSH_KNOWN_HOSTS: ${{ secrets.HOSTINGER_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/next01_deploy
+          chmod 600 ~/.ssh/next01_deploy
+
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+            chmod 600 ~/.ssh/known_hosts
+
+      - name: Verify Hostinger connection
+        env:
+          SSH_HOST: ${{ secrets.HOSTINGER_HOST }}
+          SSH_PORT: ${{ secrets.HOSTINGER_PORT }}
+          SSH_USER: ${{ secrets.HOSTINGER_USER }}
+        run: |
+          ssh -i ~/.ssh/next01_deploy \
+            -o IdentitiesOnly=yes \
+            -o BatchMode=yes \
+            -p "$SSH_PORT" \
+            "$SSH_USER@$SSH_HOST" \
+            'test -d "$HOME/domains/next01.org/public_html"'
+
+      - name: Deploy NEXT01 production files
+        env:
+          SSH_HOST: ${{ secrets.HOSTINGER_HOST }}
+          SSH_PORT: ${{ secrets.HOSTINGER_PORT }}
+          SSH_USER: ${{ secrets.HOSTINGER_USER }}
+        run: |
+          rsync -avz \
+            -e "ssh -i ~/.ssh/next01_deploy -o IdentitiesOnly=yes -o BatchMode=yes -p $SSH_PORT" \
+            dist/ \
+            "$SSH_USER@$SSH_HOST:domains/next01.org/public_html/"
