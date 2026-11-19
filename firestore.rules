@@ -63,7 +63,19 @@ service cloud.firestore {
           ])
         && request.resource.data.updatedAt == request.time;
 
-      allow delete: if false;
+      allow delete: if false; }
+
+    // NEXT01 Quiz History
+    match /users/{userId}/quizHistory/{resultId} {
+
+      // Users can read only their own quiz history.
+      allow get, list: if signedInAs(userId);
+
+      // Quiz results must not be created,
+      // modified, or deleted directly by clients.
+      // Verified results will be written
+      // through a trusted backend in the future.
+      allow create, update, delete: if false;
     }
     
     // NEXT01 Public Opinion Polls

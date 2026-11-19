@@ -1090,3 +1090,108 @@ test("NEXT01: User cannot delete published poll", async () => {
     deleteDoc(doc(db, "polls", pollId))
   );
 });
+// NEXT01 Quiz History Security Tests
+
+async function seedQuizHistory(userId, resultId) {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(
+      doc(context.firestore(), "users", userId, "quizHistory", resultId),
+      {
+        categoryId: "general-knowledge",
+        score: 4,
+        totalQuestions: 5,
+        percentage: 80,
+        completedAt: serverTimestamp(),
+      }
+    );
+  });
+}
+
+// 33. Users can read their own quiz history
+test("NEXT01: User can read own quiz history", async () => {
+  const uid = "quiz-owner-33";
+  await seedQuizHistory(uid, "result-33");
+
+  const db = testEnv.authenticatedContext(uid).firestore();
+  const resultRef = doc(db, "users", uid, "quizHistory", "result-33");
+
+  const snapshot = await assertSucceeds(getDoc(resultRef));
+
+  if (!snapshot.exists() || snapshot.data()?.score !== 4) {
+    throw new Error("Own quiz history was not readable.");
+  }
+});
+
+// 34. Users cannot read another user's quiz history
+test("NEXT01: User cannot read another user's quiz history", async () => {
+  const ownerId = "quiz-owner-34";
+  await seedQuizHistory(ownerId, "result-34");
+
+  const db = testEnv.authenticatedContext("quiz-other-34").firestore();
+
+  await assertFails(
+    getDoc(doc(db, "users", ownerId, "quizHistory", "result-34"))
+  );
+});
+
+// 35. Guests cannot read quiz history
+test("NEXT01: Guest cannot read quiz history", async () => {
+  const uid = "quiz-owner-35";
+  await seedQuizHistory(uid, "result-35");
+
+  const db = testEnv.unauthenticatedContext().firestore();
+
+  await assertFails(
+    getDoc(doc(db, "users", uid, "quizHistory", "result-35"))
+  );
+});
+
+// 36. Users cannot create fake quiz results
+test("NEXT01: User cannot create fake quiz history", async () => {
+  const uid = "quiz-user-36";
+  const db = testEnv.authenticatedContext(uid).firestore();
+
+  await assertFails(
+    setDoc(doc(db, "users", uid, "quizHistory", "fake-result"), {
+      categoryId: "general-knowledge",
+      score: 5,
+      totalQuestions: 5,
+      percentage: 100,
+      completedAt: serverTimestamp(),
+    })
+  );
+});
+
+// 37. Users cannot modify quiz scores
+test("NEXT01: User cannot update quiz history", async () => {
+  const uid = "quiz-owner-37";
+  await seedQuizHistory(uid, "result-37");
+
+  const db = testEnv.authenticatedContext(uid).firestore();
+  const resultRef = doc(db, "users", uid, "quizHistory", "result-37");
+
+  await assertFails(updateDoc(resultRef, { score: 5 }));
+
+  const snapshot = await getDoc(resultRef);
+
+  if (snapshot.data()?.score !== 4) {
+    throw new Error("Quiz score was modified.");
+  }
+});
+
+// 38. Users cannot delete quiz results
+test("NEXT01: User cannot delete quiz history", async () => {
+  const uid = "quiz-owner-38";
+  await seedQuizHistory(uid, "result-38");
+
+  const db = testEnv.authenticatedContext(uid).firestore();
+  const resultRef = doc(db, "users", uid, "quizHistory", "result-38");
+
+  await assertFails(deleteDoc(resultRef));
+
+  const snapshot = await getDoc(resultRef);
+
+  if (!snapshot.exists()) {
+    throw new Error("Quiz history was deleted.");
+  }
+});
