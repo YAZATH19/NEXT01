@@ -2,6 +2,9 @@
 name: NEXT01 Production Deployment
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -60,7 +63,14 @@ jobs:
             -p "$SSH_PORT" \
             "$SSH_USER@$SSH_HOST" \
             'test -d "$HOME/domains/next01.org/public_html"'
-
+      
+      - name: Verify production build files
+        run: |
+          test -f dist/index.html
+          test -f dist/manifest.webmanifest
+          test -f dist/sw.js
+          echo "NEXT01 production build files verified."
+    
       - name: Deploy NEXT01 production files
         env:
           SSH_HOST: ${{ secrets.HOSTINGER_HOST }}
