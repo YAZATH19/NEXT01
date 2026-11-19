@@ -65,7 +65,19 @@ export default function QuizHistory({
           📊 My Quiz History
         </h1>
 
-        <p>Track your learning progress.</p>
+        <p>
+  Track your learning progress.
+</p>
+
+<p
+  style={{
+    color: "#FBC713",
+    fontSize: "14px",
+    marginTop: "10px",
+  }}
+>
+  Practice Quiz Results — Saved on this device
+</p>
 
         <div
           style={{
