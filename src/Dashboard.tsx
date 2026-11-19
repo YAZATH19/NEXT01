@@ -257,11 +257,36 @@ if (showPublicOpinion) {
                 gap: "12px",
               }}
             >
-              <span style={{ fontSize: "30px" }}>
-                {module.icon}
-              </span>
+              <span
+  style={{
+    fontSize: "30px",
+    height: "36px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  }}
+>
+  {module.name === "My Profile" ? (
+    <svg
+      width="32"
+      height="32"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="#38BDF8"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21v-2a8 8 0 0 1 16 0v2" />
+    </svg>
+  ) : (
+    module.icon
+  )}
+</span>
 
-              <span style={{ fontWeight: "bold" }}>
+        <span style={{ fontWeight: "bold" }}>
                 {module.name}
               </span>
             </button>
