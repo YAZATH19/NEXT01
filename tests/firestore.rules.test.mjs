@@ -1195,3 +1195,296 @@ test("NEXT01: User cannot delete quiz history", async () => {
     throw new Error("Quiz history was deleted.");
   }
 });
+test("NEXT01: User can create own practice quiz result", async () => {
+  const userId = "practice-create-user-001";
+
+  const user = testEnv.authenticatedContext(userId, {
+    email: "practice@example.com",
+  });
+
+  const db = user.firestore();
+
+  const resultRef = doc(
+    db,
+    "users",
+    userId,
+    "practiceQuizHistory",
+    "practice-result-001"
+  );
+
+  await assertSucceeds(
+    setDoc(resultRef, {
+      categoryId: "general-knowledge",
+      score: 4,
+      totalQuestions: 5,
+      percentage: 80,
+      completedAt: serverTimestamp(),
+    })
+  );
+});
+test("NEXT01: User cannot create another user's practice quiz result", async () => {
+  const user = testEnv.authenticatedContext(
+    "practice-attacker-001"
+  );
+
+  const db = user.firestore();
+
+  const resultRef = doc(
+    db,
+    "users",
+    "practice-victim-001",
+    "practiceQuizHistory",
+    "unauthorized-result-001"
+  );
+
+  await assertFails(
+    setDoc(resultRef, {
+      categoryId: "general-knowledge",
+      score: 5,
+      totalQuestions: 5,
+      percentage: 100,
+      completedAt: serverTimestamp(),
+    })
+  );
+});
+test("NEXT01: User cannot save incorrect practice quiz percentage", async () => {
+  const userId = "practice-invalid-percentage-001";
+
+  const user = testEnv.authenticatedContext(userId);
+  const db = user.firestore();
+
+  const resultRef = doc(
+    db,
+    "users",
+    userId,
+    "practiceQuizHistory",
+    "invalid-percentage-result-001"
+  );
+
+  await assertFails(
+    setDoc(resultRef, {
+      categoryId: "general-knowledge",
+      score: 2,
+      totalQuestions: 5,
+      percentage: 100,
+      completedAt: serverTimestamp(),
+    })
+  );
+});
+test("NEXT01: User cannot read another user's practice quiz history", async () => {
+  const user = testEnv.authenticatedContext(
+    "practice-reader-001"
+  );
+
+  const db = user.firestore();
+
+  const resultRef = doc(
+    db,
+    "users",
+    "practice-other-user-001",
+    "practiceQuizHistory",
+    "private-result-001"
+  );
+
+  await assertFails(
+    getDoc(resultRef)
+  );
+});
+test("NEXT01: Guest cannot read practice quiz history", async () => {
+  const guest = testEnv.unauthenticatedContext();
+
+  const db = guest.firestore();
+
+  const resultRef = doc(
+    db,
+    "users",
+    "practice-user-001",
+    "practiceQuizHistory",
+    "private-result-001"
+  );
+
+  await assertFails(
+    getDoc(resultRef)
+  );
+});
+test("NEXT01: User cannot update practice quiz result", async () => {
+  const userId = "practice-update-user-001";
+
+  const user = testEnv.authenticatedContext(userId);
+  const db = user.firestore();
+
+  const resultRef = doc(
+    db,
+    "users",
+    userId,
+    "practiceQuizHistory",
+    "practice-update-result-001"
+  );
+
+  // Create a valid practice result first.
+  await assertSucceeds(
+    setDoc(resultRef, {
+      categoryId: "general-knowledge",
+      score: 3,
+      totalQuestions: 5,
+      percentage: 60,
+      completedAt: serverTimestamp(),
+    })
+  );
+
+  // Attempt to change the saved score.
+  await assertFails(
+    updateDoc(resultRef, {
+      score: 5,
+      percentage: 100,
+    })
+  );
+});
+test("NEXT01: User cannot delete practice quiz result", async () => {
+  const userId = "practice-delete-user-001";
+
+  const user = testEnv.authenticatedContext(userId);
+  const db = user.firestore();
+
+  const resultRef = doc(
+    db,
+    "users",
+    userId,
+    "practiceQuizHistory",
+    "practice-delete-result-001"
+  );
+
+  // Create a valid practice result.
+  await assertSucceeds(
+    setDoc(resultRef, {
+      categoryId: "general-knowledge",
+      score: 4,
+      totalQuestions: 5,
+      percentage: 80,
+      completedAt: serverTimestamp(),
+    })
+  );
+
+  // Attempt to delete the saved result.
+  await assertFails(
+    deleteDoc(resultRef)
+  );
+});
+test("NEXT01: User cannot save score greater than total questions", async () => {
+  const userId = "practice-invalid-score-001";
+
+  const user = testEnv.authenticatedContext(userId);
+  const db = user.firestore();
+
+  const resultRef = doc(
+    db,
+    "users",
+    userId,
+    "practiceQuizHistory",
+    "invalid-score-result-001"
+  );
+
+  await assertFails(
+    setDoc(resultRef, {
+      categoryId: "general-knowledge",
+      score: 6,
+      totalQuestions: 5,
+      percentage: 120,
+      completedAt: serverTimestamp(),
+    })
+  );
+});
+test("NEXT01: User cannot add extra fields to practice quiz result", async () => {
+  const userId = "practice-extra-fields-user-001";
+
+  const user = testEnv.authenticatedContext(userId);
+  const db = user.firestore();
+
+  const resultRef = doc(
+    db,
+    "users",
+    userId,
+    "practiceQuizHistory",
+    "extra-fields-result-001"
+  );
+
+  await assertFails(
+    setDoc(resultRef, {
+      categoryId: "general-knowledge",
+      score: 4,
+      totalQuestions: 5,
+      percentage: 80,
+      completedAt: serverTimestamp(),
+      isVerified: true,
+    })
+  );
+});
+test("NEXT01: User cannot save fake practice quiz timestamp", async () => {
+  const userId = "practice-fake-time-user-001";
+
+  const user = testEnv.authenticatedContext(userId);
+  const db = user.firestore();
+
+  const resultRef = doc(
+    db,
+    "users",
+    userId,
+    "practiceQuizHistory",
+    "fake-time-result-001"
+  );
+
+  await assertFails(
+    setDoc(resultRef, {
+      categoryId: "general-knowledge",
+      score: 4,
+      totalQuestions: 5,
+      percentage: 80,
+      completedAt: "2020-01-01T00:00:00.000Z",
+    })
+  );
+});
+test("NEXT01: User cannot save practice quiz result with missing fields", async () => {
+  const userId = "practice-missing-fields-user-001";
+
+  const user = testEnv.authenticatedContext(userId);
+  const db = user.firestore();
+
+  const resultRef = doc(
+    db,
+    "users",
+    userId,
+    "practiceQuizHistory",
+    "missing-fields-result-001"
+  );
+
+  await assertFails(
+    setDoc(resultRef, {
+      categoryId: "general-knowledge",
+      score: 4,
+      totalQuestions: 5,
+      completedAt: serverTimestamp(),
+    })
+  );
+});
+test("NEXT01: Guest cannot create practice quiz result", async () => {
+  const guest = testEnv.unauthenticatedContext();
+  const db = guest.firestore();
+
+  const resultRef = doc(
+    db,
+    "users",
+    "guest-user-001",
+    "practiceQuizHistory",
+    "guest-result-001"
+  );
+
+  await assertFails(
+    setDoc(resultRef, {
+      categoryId: "general-knowledge",
+      score: 4,
+      totalQuestions: 5,
+      percentage: 80,
+      completedAt: serverTimestamp(),
+    })
+  );
+});

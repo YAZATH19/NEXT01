@@ -75,7 +75,54 @@ service cloud.firestore {
       // modified, or deleted directly by clients.
       // Verified results will be written
       // through a trusted backend in the future.
-      allow create, update, delete: if false;
+           allow create, update, delete: if false;
+    }
+
+    // NEXT01 Practice Quiz History
+    // These results are user-submitted and NOT verified.
+    match /users/{userId}/practiceQuizHistory/{resultId} {
+
+      // Users can read only their own practice results.
+      allow get, list: if signedInAs(userId);
+
+      // Users can create their own practice results.
+      allow create: if signedInAs(userId)
+        && request.resource.data.keys().hasOnly([
+          'categoryId',
+          'score',
+          'totalQuestions',
+          'percentage',
+          'completedAt'
+        ])
+        && request.resource.data.keys().hasAll([
+          'categoryId',
+          'score',
+          'totalQuestions',
+          'percentage',
+          'completedAt'
+        ])
+        && request.resource.data.categoryId is string
+        && request.resource.data.categoryId.size() > 0
+        && request.resource.data.categoryId.size() <= 100
+        && request.resource.data.score is int
+        && request.resource.data.totalQuestions is int
+        && request.resource.data.totalQuestions > 0
+        && request.resource.data.totalQuestions <= 100
+        && request.resource.data.score >= 0
+        && request.resource.data.score <=
+          request.resource.data.totalQuestions
+        && request.resource.data.percentage is int
+        && request.resource.data.percentage ==
+          int(
+            (
+              request.resource.data.score * 100.0 /
+              request.resource.data.totalQuestions
+            ) + 0.5
+          )
+        && request.resource.data.completedAt == request.time;
+
+      // Practice results cannot be edited or deleted.
+      allow update, delete: if false;
     }
     
     // NEXT01 Public Opinion Polls

@@ -7,6 +7,7 @@ import {
 } from "./quizQuestions";
 import { auth } from "./firebase";
 import { saveQuizResult } from "./quizHistory";
+import { savePracticeQuizToCloud } from "./practiceQuizCloud";
 import QuizHistory from "./QuizHistoryScreen";
 
 type QuizCentreProps = {
@@ -85,12 +86,22 @@ const handleNext = () => {
 
     if (userId && selectedCategory) {
       try {
-        saveQuizResult(
-          userId,
-          selectedCategory,
-          score,
-          questions.length
-        );
+        const savedRecord = saveQuizResult(
+  userId,
+  selectedCategory,
+  score,
+  questions.length
+);
+
+void savePracticeQuizToCloud(
+  userId,
+  savedRecord
+).catch((error: unknown) => {
+  console.error(
+    "Practice Quiz Cloud Sync failed:",
+    error
+  );
+});
       } catch {
         setHistoryError(
           "Quiz completed, but your result could not be saved."
