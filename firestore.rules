@@ -1,0 +1,143 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedInAs(userId) {
+      return request.auth != null
+        && request.auth.uid == userId;
+    }
+
+    function validProfile(data) {
+      return data.keys().hasOnly([
+          'uid',
+          'displayName',
+          'email',
+          'photoURL',
+          'createdAt',
+          'fullName',
+          'dateOfBirth',
+          'mobileNumber',
+          'occupation',
+          'updatedAt'
+        ])
+        && data.uid is string
+        && data.displayName is string
+        && data.email is string
+        && data.photoURL is string
+        && data.fullName is string
+        && data.fullName.size() <= 120
+        && data.dateOfBirth is string
+        && data.dateOfBirth.size() <= 10
+        && data.mobileNumber is string
+        && data.mobileNumber.size() <= 20
+        && data.occupation is string
+        && data.occupation.size() <= 120
+        && data.createdAt is timestamp
+        && (
+        !('updatedAt' in data)
+        || data.updatedAt is timestamp
+        );
+    }
+
+    match /users/{userId} {
+
+      allow read: if signedInAs(userId);
+
+      allow create: if signedInAs(userId)
+        && validProfile(request.resource.data)
+        && request.resource.data.uid == userId
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.createdAt == request.time;
+
+      allow update: if signedInAs(userId)
+        && validProfile(request.resource.data)
+        && request.resource.data.diff(resource.data)
+          .affectedKeys().hasOnly([
+            'fullName',
+            'dateOfBirth',
+            'mobileNumber',
+            'occupation',
+            'updatedAt'
+          ])
+        && request.resource.data.updatedAt == request.time;
+
+      allow delete: if false;
+    }
+    
+    // NEXT01 Public Opinion Polls
+    match /polls/{pollId} 
+    {
+    
+      // NEXT01 Public Opinion - Aggregate Results
+      match /results/{resultId} {
+
+        // Signed-in users can read the summary
+        // only when the parent poll is published.
+        allow get: if request.auth != null
+          && resultId == "summary"
+          && get(
+            /databases/$(database)/documents/polls/$(pollId)
+          ).data.status == "published";
+
+        // Do not allow listing results documents.
+        allow list: if false;
+
+        // Results cannot be modified by client apps.
+        allow create, update, delete: if false;
+      }
+
+
+      // Only signed-in users can read published polls.
+      allow get, list: if request.auth != null
+        && resource.data.status == "published";
+
+      // Poll creation and editing are not allowed
+      // directly from the client application.
+      allow create, update, delete: if false;
+
+      // One vote per authenticated user per poll.
+      match /votes/{userId} {
+
+        // Users can read only their own vote.
+        allow get: if request.auth != null
+          && request.auth.uid == userId;
+
+        // Listing individual votes is prohibited.
+        allow list: if false;
+
+        // Users can create only their own vote.
+        allow create: if request.auth != null
+          && request.auth.uid == userId
+          && exists(
+            /databases/$(database)/documents/polls/$(pollId)
+          )
+          && get(
+            /databases/$(database)/documents/polls/$(pollId)
+          ).data.status == "published"
+          && request.resource.data.keys().hasOnly([
+            "optionIndex",
+            "createdAt"
+          ])
+          && request.resource.data.keys().hasAll([
+            "optionIndex",
+            "createdAt"
+          ])
+          && request.resource.data.optionIndex is int
+          && request.resource.data.optionIndex >= 0
+          && get(
+            /databases/$(database)/documents/polls/$(pollId)
+          ).data.options is list
+          && request.resource.data.optionIndex <
+            get(
+              /databases/$(database)/documents/polls/$(pollId)
+            ).data.options.size()
+          && request.resource.data.createdAt == request.time;
+
+        // Votes cannot be changed or deleted.
+        allow update, delete: if false;
+      }
+    }
+  }
+}
