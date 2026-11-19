@@ -5,6 +5,7 @@ import { signOut } from "firebase/auth";
 import { auth } from "./firebase";
 import PublicOpinion from "./PublicOpinion";
 import PollDirectory from "./PollDirectory";
+import QuizCentre from "./QuizCentre";
 
 
 type Profile = {
@@ -57,7 +58,10 @@ if (name === "Public Opinion") {
   setShowPublicOpinion(true);
   return;
 }
-
+if (name === "Quiz Centre") {
+  setSelectedModule("Quiz Centre");
+  return;
+}
     setSelectedModule(name);
   };
 
@@ -75,7 +79,14 @@ if (name === "Public Opinion") {
     }
   };
 
-  
+  if (selectedModule === "Quiz Centre") {
+  return (
+    <QuizCentre
+      onBack={() => setSelectedModule("")}
+    />
+  );
+}
+
 if (showPublicOpinion) {
   if (selectedPollId !== null) {
     return (
