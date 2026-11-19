@@ -47,9 +47,8 @@ jobs:
           chmod 700 ~/.ssh
           printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/next01_deploy
           chmod 600 ~/.ssh/next01_deploy
-
           printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
-            chmod 600 ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
 
       - name: Verify Hostinger connection
         env:
