@@ -1,6 +1,10 @@
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { auth } from "./firebase";
+import {
+  getPracticeQuizHistoryFromCloud,
+  syncLocalPracticeQuizToCloud,
+} from "./practiceQuizCloud";
 import { quizCategories } from "./quizData";
 import {
   getQuizHistory,
@@ -15,13 +19,86 @@ type QuizHistoryProps = {
 export default function QuizHistory({
   onBack,
 }: QuizHistoryProps) {
-  const [history] = useState<QuizHistoryRecord[]>(
-    () => {
-      const userId = auth.currentUser?.uid;
-      return userId ? getQuizHistory(userId) : [];
-    }
-  );
+  const [history, setHistory] = useState<QuizHistoryRecord[]>(
+  () => {
+    const userId = auth.currentUser?.uid;
+    return userId ? getQuizHistory(userId) : [];
+  }
+);
+useEffect(() => {
+  const userId = auth.currentUser?.uid;
 
+  if (!userId) {
+    return;
+  }
+
+  let cancelled = false;
+
+  async function loadCloudHistory() {
+    try {
+      const cloudHistory =
+        await getPracticeQuizHistoryFromCloud(userId!);
+
+      if (cancelled) {
+        return;
+      }
+
+      setHistory((currentHistory) => {
+        const mergedHistory = new Map<
+          string,
+          QuizHistoryRecord
+        >();
+
+        for (const record of currentHistory) {
+          mergedHistory.set(record.id, record);
+        }
+
+        for (const record of cloudHistory) {
+          mergedHistory.set(record.id, record);
+        }
+
+        return Array.from(
+          mergedHistory.values()
+        ).sort(
+          (a, b) =>
+            new Date(b.completedAt).getTime() -
+            new Date(a.completedAt).getTime()
+        );
+      });
+    } catch (error) {
+      console.error(
+        "Practice Quiz Cloud History loading failed:",
+        error
+      );
+    }
+  }
+
+  async function syncAndLoadHistory() {
+    try {
+      const localHistory = getQuizHistory(userId!);
+
+      await syncLocalPracticeQuizToCloud(
+        userId!,
+        localHistory
+      );
+    } catch (error) {
+      console.error(
+        "Practice Quiz Cloud Sync failed:",
+        error
+      );
+    }
+
+    if (!cancelled) {
+      await loadCloudHistory();
+    }
+  }
+
+  void syncAndLoadHistory();
+
+  return () => {
+    cancelled = true;
+  };
+}, []);
   const statistics = getQuizStatistics(history);
 
   const getCategory = (categoryId: string) =>
@@ -76,7 +153,7 @@ export default function QuizHistory({
     marginTop: "10px",
   }}
 >
-  Practice Quiz Results — Saved on this device
+  Practice Quiz Results — Local & Cloud History
 </p>
 
         <div
