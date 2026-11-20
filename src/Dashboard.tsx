@@ -44,6 +44,20 @@ const [selectedPollId, setSelectedPollId] =
   useState<string | null>(null);
 
   const [loggingOut, setLoggingOut] = useState(false);
+    const profileFields = [
+    profile.fullName,
+    profile.dateOfBirth,
+    profile.mobileNumber,
+    profile.occupation,
+  ];
+
+  const completedFields = profileFields.filter(
+    (value) => value.trim().length > 0
+  ).length;
+
+  const profileCompletion = Math.round(
+    (completedFields / profileFields.length) * 100
+  );
 
   const handleModuleClick = (name: string) => {
     if (name === "My Profile") {
@@ -177,6 +191,81 @@ if (showPublicOpinion) {
           <p style={{ opacity: 0.75 }}>
             Your Digital Lifestyle Starts Here.
           </p>
+        </section>
+                <section
+          style={{
+            backgroundColor: "#FFFFFF",
+            color: "#050A30",
+            padding: "20px",
+            borderRadius: "14px",
+            marginBottom: "25px",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: "10px",
+            }}
+          >
+            <h3 style={{ margin: 0 }}>
+              Profile Completion
+            </h3>
+
+            <strong style={{ color: "#2563EB" }}>
+              {profileCompletion}%
+            </strong>
+          </div>
+
+          <div
+            role="progressbar"
+            aria-label="Profile completion"
+            aria-valuenow={profileCompletion}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            style={{
+              width: "100%",
+              height: "10px",
+              backgroundColor: "#E5E7EB",
+              borderRadius: "10px",
+              overflow: "hidden",
+              marginTop: "15px",
+            }}
+          >
+            <div
+              style={{
+                width: `${profileCompletion}%`,
+                height: "100%",
+                backgroundColor: "#2563EB",
+                borderRadius: "10px",
+              }}
+            />
+          </div>
+
+          <p style={{ fontSize: "14px", marginTop: "12px" }}>
+            {profileCompletion === 100
+              ? "Your profile is complete!"
+              : "Complete your profile to get the most out of NEXT01."}
+          </p>
+
+          {profileCompletion < 100 && (
+            <button
+              type="button"
+              onClick={onEditProfile}
+              style={{
+                backgroundColor: "#2563EB",
+                color: "#FFFFFF",
+                border: "none",
+                borderRadius: "8px",
+                padding: "12px 18px",
+                fontWeight: "bold",
+                cursor: "pointer",
+              }}
+            >
+              Complete My Profile
+            </button>
+          )}
         </section>
 
         <div
