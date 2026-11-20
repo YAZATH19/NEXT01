@@ -181,17 +181,56 @@ if (showPublicOpinion) {
         </header>
 
         <section style={{ marginBottom: "30px" }}>
-          <h1 style={{ fontSize: "28px" }}>
-            Welcome,{" "}
-            {profile.fullName ||
-              user.displayName ||
-              "User"}!
+           <h1
+            style={{
+              fontSize: "28px",
+              display: "flex",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: "10px",
+            }}
+          >
+            <span>
+              Welcome,{" "}
+              {profile.fullName ||
+                user.displayName ||
+                "User"}!
+            </span>
+
+            {profileCompletion === 100 && (
+              <span
+                role="img"
+                aria-label="Profile Complete"
+                title="NEXT01 Gold Profile Completion Badge"
+                style={{
+                  color: "#FBC713",
+                  fontSize: "27px",
+                  lineHeight: 1,
+                }}
+              >
+                                <svg
+                  width="28"
+                  height="28"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M12 3 14.7 4.6 17.8 4.7 19.4 7.3 22 9 21.3 12 22 15 19.4 16.7 17.8 19.3 14.7 19.4 12 21 9.3 19.4 6.2 19.3 4.6 16.7 2 15 2.7 12 2 9 4.6 7.3 6.2 4.7 9.3 4.6Z" />
+                  <path d="m8.5 12 2.5 2.5 4.5-5" />
+                </svg>
+              </span>
+            )}
           </h1>
 
           <p style={{ opacity: 0.75 }}>
             Your Digital Lifestyle Starts Here.
           </p>
         </section>
+                {profileCompletion < 100 && (
                 <section
           style={{
             backgroundColor: "#FFFFFF",
@@ -267,6 +306,7 @@ if (showPublicOpinion) {
             </button>
           )}
         </section>
+                )}
 
         <div
           style={{
