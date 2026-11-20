@@ -97,6 +97,7 @@ export async function getPracticeQuizHistoryFromCloud(
       new Date(a.completedAt).getTime()
   );
 }
+
 export async function syncLocalPracticeQuizToCloud(
   userId: string,
   records: QuizHistoryRecord[]
@@ -105,25 +106,43 @@ export async function syncLocalPracticeQuizToCloud(
     throw new Error("User ID is required");
   }
 
+  let failedCount = 0;
+
   for (const record of records) {
     if (!record.id) {
+      failedCount++;
       continue;
     }
 
-    const resultRef = doc(
-      db,
-      "users",
-      userId,
-      "practiceQuizHistory",
-      record.id
+    try {
+      const resultRef = doc(
+        db,
+        "users",
+        userId,
+        "practiceQuizHistory",
+        record.id
+      );
+
+      const existingResult = await getDoc(resultRef);
+
+      if (existingResult.exists()) {
+        continue;
+      }
+
+      await savePracticeQuizToCloud(userId, record);
+    } catch (error) {
+      failedCount++;
+
+      console.error(
+        `Practice Quiz Sync failed for result ${record.id}:`,
+        error
+      );
+    }
+  }
+
+  if (failedCount > 0) {
+    throw new Error(
+      `${failedCount} practice quiz result(s) failed to sync`
     );
-
-    const existingResult = await getDoc(resultRef);
-
-    if (existingResult.exists()) {
-      continue;
-    }
-
-    await savePracticeQuizToCloud(userId, record);
   }
 }

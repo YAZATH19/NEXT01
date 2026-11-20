@@ -19,61 +19,145 @@ type QuizHistoryProps = {
 export default function QuizHistory({
   onBack,
 }: QuizHistoryProps) {
-  const [history, setHistory] = useState<QuizHistoryRecord[]>(
+  
+const [history, setHistory] = useState<QuizHistoryRecord[]>(
   () => {
     const userId = auth.currentUser?.uid;
-    return userId ? getQuizHistory(userId) : [];
+
+    if (!userId) {
+      return [];
+    }
+
+    const localHistory = getQuizHistory(userId);
+
+    try {
+      const cachedData = localStorage.getItem(
+        `next01-practice-cloud-cache-${userId}`
+      );
+
+      if (!cachedData) {
+        return localHistory;
+      }
+
+      const parsed: unknown = JSON.parse(cachedData);
+
+      if (!Array.isArray(parsed)) {
+        return localHistory;
+      }
+
+      const cachedHistory = parsed.filter(
+        (record): record is QuizHistoryRecord =>
+          typeof record === "object" &&
+          record !== null &&
+          typeof record.id === "string" &&
+          record.id.length > 0 &&
+          typeof record.categoryId === "string" &&
+          Number.isInteger(record.score) &&
+          Number.isInteger(record.totalQuestions) &&
+          record.totalQuestions > 0 &&
+          record.score >= 0 &&
+          record.score <= record.totalQuestions &&
+          Number.isInteger(record.percentage) &&
+          record.percentage ===
+            Math.round(
+              (record.score / record.totalQuestions) * 100
+            ) &&
+          typeof record.completedAt === "string" &&
+          !Number.isNaN(Date.parse(record.completedAt))
+      );
+
+      const merged = new Map<string, QuizHistoryRecord>();
+
+      for (const record of localHistory) {
+        merged.set(record.id, record);
+      }
+
+      for (const record of cachedHistory) {
+        merged.set(record.id, record);
+      }
+
+      return Array.from(merged.values()).sort(
+        (a, b) =>
+          Date.parse(b.completedAt) -
+          Date.parse(a.completedAt)
+      );
+    } catch (error) {
+      console.warn(
+        "Practice Quiz Cache loading failed:",
+        error
+      );
+
+      return localHistory;
+    }
   }
 );
+
 useEffect(() => {
   const userId = auth.currentUser?.uid;
 
   if (!userId) {
     return;
   }
+  
+let cancelled = false;
+let syncInProgress = false;  
+async function loadCloudHistory() {
+  const cloudHistory =
+    await getPracticeQuizHistoryFromCloud(userId!);
 
-  let cancelled = false;
+if (cancelled) {
+  return;
+}
 
-  async function loadCloudHistory() {
-    try {
-      const cloudHistory =
-        await getPracticeQuizHistoryFromCloud(userId!);
+// Cache successfully loaded cloud results for offline viewing.
+try {
+  localStorage.setItem(
+    `next01-practice-cloud-cache-${userId}`,
+    JSON.stringify(cloudHistory)
+  );
+} catch (error) {
+  console.warn(
+    "Practice Quiz Cloud Cache save failed:",
+    error
+  );
+}
 
-      if (cancelled) {
-        return;
-      }
+setHistory((currentHistory) => {
 
-      setHistory((currentHistory) => {
-        const mergedHistory = new Map<
-          string,
-          QuizHistoryRecord
-        >();
+    const mergedHistory = new Map<
+      string,
+      QuizHistoryRecord
+    >();
 
-        for (const record of currentHistory) {
-          mergedHistory.set(record.id, record);
-        }
-
-        for (const record of cloudHistory) {
-          mergedHistory.set(record.id, record);
-        }
-
-        return Array.from(
-          mergedHistory.values()
-        ).sort(
-          (a, b) =>
-            new Date(b.completedAt).getTime() -
-            new Date(a.completedAt).getTime()
-        );
-      });
-    } catch (error) {
-      console.error(
-        "Practice Quiz Cloud History loading failed:",
-        error
-      );
+    for (const record of currentHistory) {
+      mergedHistory.set(record.id, record);
     }
-  }
 
-  async function syncAndLoadHistory() {
+    for (const record of cloudHistory) {
+      mergedHistory.set(record.id, record);
+    }
+
+    return Array.from(
+      mergedHistory.values()
+    ).sort(
+      (a, b) =>
+        new Date(b.completedAt).getTime() -
+        new Date(a.completedAt).getTime()
+    );
+  });
+}
+  
+
+
+async function syncAndLoadHistory() {
+  if (cancelled || syncInProgress) return;
+
+  syncInProgress = true;
+  setSyncStatus("syncing");
+
+  let syncFailed = false;
+
+  try {
     try {
       const localHistory = getQuizHistory(userId!);
 
@@ -82,21 +166,83 @@ useEffect(() => {
         localHistory
       );
     } catch (error) {
+      syncFailed = true;
+
       console.error(
         "Practice Quiz Cloud Sync failed:",
         error
       );
     }
 
-    if (!cancelled) {
+    if (cancelled) return;
+
+    try {
       await loadCloudHistory();
+    } catch (error) {
+      syncFailed = true;
+
+      console.error(
+        "Practice Quiz Cloud History loading failed:",
+        error
+      );
     }
+
+    if (!cancelled) {
+      setSyncStatus(
+        syncFailed ? "error" : "success"
+      );
+    }
+  } finally {
+    // Always release the sync lock.
+    syncInProgress = false;
+  }
+}
+
+  // Run the initial cloud sync.
+  void syncAndLoadHistory();
+
+  // Retry cloud sync when internet reconnects.
+  function handleOnline() {
+    if (cancelled) return;
+
+    void syncAndLoadHistory();
   }
 
-  void syncAndLoadHistory();
+  window.addEventListener("online", handleOnline);
 
   return () => {
     cancelled = true;
+
+    window.removeEventListener(
+      "online",
+      handleOnline
+    );
+  };
+}, []);
+
+
+const [syncStatus, setSyncStatus] = useState<
+  "idle" | "syncing" | "success" | "error"
+>("idle");
+
+const [isOnline, setIsOnline] = useState(
+  navigator.onLine
+);
+useEffect(() => {
+  function handleOnline() {
+    setIsOnline(true);
+  }
+
+  function handleOffline() {
+    setIsOnline(false);
+  }
+
+  window.addEventListener("online", handleOnline);
+  window.addEventListener("offline", handleOffline);
+
+  return () => {
+    window.removeEventListener("online", handleOnline);
+    window.removeEventListener("offline", handleOffline);
   };
 }, []);
   const statistics = getQuizStatistics(history);
@@ -137,6 +283,35 @@ useEffect(() => {
         >
           ← Back to Quiz Centre
         </button>
+
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            marginTop: "20px",
+            marginBottom: "20px",
+            padding: "14px 18px",
+            borderRadius: "10px",
+            backgroundColor: "#101B4D",
+            border: "1px solid #D4AF37",
+            color: "#FFFFFF",
+            fontSize: "14px",
+          }}
+        >
+          
+{!isOnline ? (
+  "📴 Offline — Local Results Available"
+) : syncStatus === "idle" ? (
+  "☁️ Cloud Sync: Waiting..."
+) : syncStatus === "syncing" ? (
+  "🔄 Cloud Sync: Syncing..."
+) : syncStatus === "success" ? (
+  "✅ Cloud Sync: Successful"
+) : (
+  "⚠️ Cloud Sync: Failed — Local Results Available"
+)}
+
+        </div>
 
         <h1 style={{ marginTop: "35px" }}>
           📊 My Quiz History
