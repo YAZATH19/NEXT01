@@ -6,6 +6,7 @@ import {
   onSnapshot,
   serverTimestamp,
   updateDoc,
+  writeBatch,
   type Timestamp,
 } from "firebase/firestore";
 import { auth, db } from "./firebase";
@@ -33,6 +34,7 @@ export default function NotificationCentre({
   const [updatingId, setUpdatingId] = useState<string | null>(
     null
   );
+  const [markingAll, setMarkingAll] = useState(false);
 
   useEffect(() => {
     const user = auth.currentUser;
@@ -98,7 +100,7 @@ export default function NotificationCentre({
   const markAsRead = async (notificationId: string) => {
     const user = auth.currentUser;
 
-    if (!user) return;
+    if (!user || markingAll || updatingId !== null) return;
 
     setUpdatingId(notificationId);
     setError("");
@@ -127,9 +129,71 @@ export default function NotificationCentre({
     }
   };
 
+  const markAllAsRead = async () => {
+    const user = auth.currentUser;
+
+    if (!user || markingAll || updatingId !== null) return;
+
+    const unreadNotifications = notifications.filter(
+      (notification) => !notification.isRead
+    );
+
+    if (unreadNotifications.length === 0) return;
+
+    setMarkingAll(true);
+    setError("");
+
+    try {
+      // Firestore batches support up to 500 writes.
+      // Use smaller batches to stay within safe limits.
+      const batchSize = 400;
+
+      for (
+        let start = 0;
+        start < unreadNotifications.length;
+        start += batchSize
+      ) {
+        const batch = writeBatch(db);
+        const currentGroup = unreadNotifications.slice(
+          start,
+          start + batchSize
+        );
+
+        for (const notification of currentGroup) {
+          const notificationRef = doc(
+            db,
+            "users",
+            user.uid,
+            "notifications",
+            notification.id
+          );
+
+          batch.update(notificationRef, {
+            isRead: true,
+            readAt: serverTimestamp(),
+          });
+        }
+
+        await batch.commit();
+      }
+    } catch (updateError) {
+      console.error(
+        "Failed to mark all notifications as read:",
+        updateError
+      );
+      setError(
+        "Unable to mark all notifications as read. Please try again."
+      );
+    } finally {
+      setMarkingAll(false);
+    }
+  };
+
   const unreadCount = notifications.filter(
     (notification) => !notification.isRead
   ).length;
+
+  const isUpdating = markingAll || updatingId !== null;
 
   return (
     <main
@@ -169,10 +233,46 @@ export default function NotificationCentre({
         </p>
 
         {!loading && !error && unreadCount > 0 && (
-          <p style={{ color: "#FBC713" }}>
-            {unreadCount} unread notification
-            {unreadCount !== 1 ? "s" : ""}
-          </p>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              flexWrap: "wrap",
+              gap: "12px",
+              marginTop: "20px",
+            }}
+          >
+            <p
+              style={{
+                color: "#FBC713",
+                margin: 0,
+              }}
+            >
+              {unreadCount} unread notification
+              {unreadCount !== 1 ? "s" : ""}
+            </p>
+
+            <button
+              type="button"
+              onClick={markAllAsRead}
+              disabled={isUpdating}
+              style={{
+                backgroundColor: "#FBC713",
+                color: "#050A30",
+                border: "none",
+                borderRadius: "8px",
+                padding: "12px 18px",
+                fontWeight: "bold",
+                cursor: isUpdating ? "wait" : "pointer",
+                opacity: isUpdating ? 0.65 : 1,
+              }}
+            >
+              {markingAll
+                ? "Marking All..."
+                : "✓ Mark All as Read"}
+            </button>
+          </div>
         )}
 
         {error && (
@@ -270,9 +370,7 @@ export default function NotificationCentre({
                 {!notification.isRead && (
                   <button
                     type="button"
-                    disabled={
-                      updatingId === notification.id
-                    }
+                    disabled={isUpdating}
                     onClick={() =>
                       markAsRead(notification.id)
                     }
@@ -283,7 +381,8 @@ export default function NotificationCentre({
                       borderRadius: "8px",
                       padding: "10px 14px",
                       fontWeight: "bold",
-                      cursor: "pointer",
+                      cursor: isUpdating ? "wait" : "pointer",
+                      opacity: isUpdating ? 0.65 : 1,
                     }}
                   >
                     {updatingId === notification.id
