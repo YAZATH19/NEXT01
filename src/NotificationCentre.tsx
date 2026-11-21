@@ -294,6 +294,29 @@ export default function NotificationCentre({
           Stay connected with your NEXT01 updates.
         </p>
 
+        <section aria-label="Notification filters" style={{ backgroundColor: "#19234C", border: "1px solid #303A69", borderRadius: "14px", padding: "16px", marginTop: "22px" }}>
+          <p style={{ margin: "0 0 12px", fontWeight: "bold" }}>Filter notifications</p>
+          <div role="group" aria-label="Read status" style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "16px" }}>
+            {(["all", "unread", "read"] as StatusFilter[]).map((status) => (
+              <button key={status} type="button" aria-pressed={statusFilter === status}
+                onClick={() => setStatusFilter(status)}
+                style={{ backgroundColor: statusFilter === status ? "#FBC713" : "#303A69", color: statusFilter === status ? "#050A30" : "#FFFFFF", border: "1px solid #FBC713", borderRadius: "8px", padding: "10px 16px", fontWeight: "bold", cursor: "pointer" }}>
+                {status === "all" ? "All" : status === "unread" ? "Unread" : "Read"}
+              </button>
+            ))}
+          </div>
+          <label htmlFor="next01-category-filter" style={{ display: "block", fontWeight: "bold", marginBottom: "8px" }}>Category</label>
+          <select id="next01-category-filter" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}
+            style={{ width: "100%", maxWidth: "320px", padding: "11px", borderRadius: "8px", border: "1px solid #CBD5E1", backgroundColor: "#FFFFFF", color: "#050A30", fontSize: "15px" }}>
+            {CATEGORY_NAMES.map((category) => <option key={category} value={category}>{category}</option>)}
+          </select>
+          <label style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "16px", cursor: "pointer" }}>
+            <input type="checkbox" checked={rememberFilters} onChange={(event) => setRememberFilters(event.target.checked)} />
+            Remember my filters on this device
+          </label>
+          <p style={{ fontSize: "12px", opacity: 0.75, marginBottom: 0 }}>These settings affect only how notifications are displayed. They do not stop delivery of notifications.</p>
+        </section>
+
         {!loading && !error && unreadCount > 0 && (
           <div
             style={{
