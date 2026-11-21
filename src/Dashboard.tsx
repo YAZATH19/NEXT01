@@ -1,8 +1,13 @@
-
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import {
+  collection,
+  onSnapshot,
+  query,
+  where,
+} from "firebase/firestore";
 import type { User } from "firebase/auth";
 import { signOut } from "firebase/auth";
-import { auth } from "./firebase";
+import { auth, db } from "./firebase";
 import PublicOpinion from "./PublicOpinion";
 import PollDirectory from "./PollDirectory";
 import QuizCentre from "./QuizCentre";
@@ -45,6 +50,32 @@ const [selectedPollId, setSelectedPollId] =
   useState<string | null>(null);
 
   const [loggingOut, setLoggingOut] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+useEffect(() => {
+  if (!user.uid) {
+    setUnreadCount(0);
+    return;
+  }
+
+  const notificationsQuery = query(
+    collection(db, "users", user.uid, "notifications"),
+    where("isRead", "==", false)
+  );
+
+  const unsubscribe = onSnapshot(
+    notificationsQuery,
+    (snapshot) => {
+      setUnreadCount(snapshot.size);
+    },
+    (error) => {
+      console.error("Unread notifications error:", error);
+      setUnreadCount(0);
+    }
+  );
+
+  return () => unsubscribe();
+}, [user.uid]);
     const profileFields = [
     profile.fullName,
     profile.dateOfBirth,
@@ -379,6 +410,7 @@ if (showPublicOpinion) {
               type="button"
               onClick={() =>
                 handleModuleClick(module.name)
+                
               }
               style={{
                 backgroundColor: "#19234C",
@@ -421,10 +453,37 @@ if (showPublicOpinion) {
     module.icon
   )}
 </span>
+   
+<span
+  style={{
+    fontWeight: "bold",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexWrap: "wrap",
+    gap: "8px",
+  }}
+>
+  {module.name}
 
-        <span style={{ fontWeight: "bold" }}>
-                {module.name}
-              </span>
+  {module.name === "Notifications" && unreadCount > 0 && (
+    <span
+      aria-label={`${unreadCount} unread notifications`}
+      style={{
+        backgroundColor: "#FBC713",
+        color: "#050A30",
+        borderRadius: "999px",
+        padding: "3px 8px",
+        fontSize: "12px",
+        fontWeight: "bold",
+        minWidth: "20px",
+        textAlign: "center",
+      }}
+    >
+      {unreadCount > 99 ? "99+" : unreadCount}
+    </span>
+  )}
+</span>      
             </button>
           ))}
         </div>
