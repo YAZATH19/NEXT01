@@ -6,6 +6,7 @@ import { auth } from "./firebase";
 import PublicOpinion from "./PublicOpinion";
 import PollDirectory from "./PollDirectory";
 import QuizCentre from "./QuizCentre";
+import NotificationCentre from "./NotificationCentre";
 
 
 type Profile = {
@@ -100,7 +101,13 @@ if (name === "Quiz Centre") {
     />
   );
 }
-
+  if (selectedModule === "Notifications") {
+    return (
+      <NotificationCentre
+        onBack={() => setSelectedModule("")}
+      />
+    );
+  }
 if (showPublicOpinion) {
   if (selectedPollId !== null) {
     return (
