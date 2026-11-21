@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import {
   collection,
   onSnapshot,
@@ -8,10 +8,10 @@ import {
 import type { User } from "firebase/auth";
 import { signOut } from "firebase/auth";
 import { auth, db } from "./firebase";
-import PublicOpinion from "./PublicOpinion";
-import PollDirectory from "./PollDirectory";
-import QuizCentre from "./QuizCentre";
-import NotificationCentre from "./NotificationCentre";
+const PublicOpinion = lazy(() => import("./PublicOpinion"));
+const PollDirectory = lazy(() => import("./PollDirectory"));
+const QuizCentre = lazy(() => import("./QuizCentre"));
+const NotificationCentre = lazy(() => import("./NotificationCentre"));
 
 
 type Profile = {
@@ -35,6 +35,14 @@ const modules = [
   { name: "My Profile", icon: "👤" },
   { name: "Notifications", icon: "🔔" },
 ];
+
+function ModuleLoading() {
+  return (
+    <main role="status" style={{ minHeight: "100vh", backgroundColor: "#050A30", color: "#FFFFFF", display: "grid", placeItems: "center", padding: 24 }}>
+      Loading NEXT01 module...
+    </main>
+  );
+}
 
 export default function Dashboard({
   user,
@@ -127,31 +135,31 @@ if (name === "Quiz Centre") {
 
   if (selectedModule === "Quiz Centre") {
   return (
-    <QuizCentre
+    <Suspense fallback={<ModuleLoading />}><QuizCentre
       onBack={() => setSelectedModule("")}
-    />
+    /></Suspense>
   );
 }
   if (selectedModule === "Notifications") {
     return (
-      <NotificationCentre
+      <Suspense fallback={<ModuleLoading />}><NotificationCentre
         onBack={() => setSelectedModule("")}
-      />
+      /></Suspense>
     );
   }
 if (showPublicOpinion) {
   if (selectedPollId !== null) {
     return (
-      <PublicOpinion
+      <Suspense fallback={<ModuleLoading />}><PublicOpinion
         key={selectedPollId}
         pollId={selectedPollId}
         onBack={() => setSelectedPollId(null)}
-      />
+      /></Suspense>
     );
   }
 
   return (
-    <PollDirectory
+    <Suspense fallback={<ModuleLoading />}><PollDirectory
       onSelectPoll={(pollId) =>
         setSelectedPollId(pollId)
       }
@@ -159,7 +167,7 @@ if (showPublicOpinion) {
         setSelectedPollId(null);
         setShowPublicOpinion(false);
       }}
-    />
+    /></Suspense>
   );
 }
 

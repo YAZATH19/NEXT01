@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import type { User } from "firebase/auth";
 import {
@@ -8,7 +8,7 @@ import {
   signOut,
 } from "firebase/auth";
 import { doc, getDoc, serverTimestamp, updateDoc, writeBatch } from "firebase/firestore";
-import Dashboard from "./Dashboard";
+const Dashboard = lazy(() => import("./Dashboard"));
 import { auth, db } from "./firebase";
 type Profile = {
   fullName: string;
@@ -272,6 +272,7 @@ if (user && profileLoadFailed) {
 }
   if (user && showDashboard && savedProfile) {
     return (
+      <Suspense fallback={<main role="status" style={{ minHeight: "100vh", background: "#050A30", color: "#FFFFFF", display: "grid", placeItems: "center" }}>Loading dashboard...</main>}>
       <Dashboard
         user={user}
         profile={savedProfile}
@@ -281,6 +282,7 @@ if (user && profileLoadFailed) {
           setShowDashboard(false);
         }}
       />
+      </Suspense>
     );
   }
   return (
