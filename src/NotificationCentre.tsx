@@ -21,7 +21,24 @@ type NextNotification = {
   message: string;
   isRead: boolean;
   createdAt: Timestamp | null;
+  category: string;
 };
+
+type StatusFilter = "all" | "unread" | "read";
+const CATEGORY_NAMES = ["All", "System", "Rewards", "Offers", "Surveys", "Other"];
+
+function resolveCategory(value: unknown, title: string): string {
+  if (typeof value === "string") {
+    const match = CATEGORY_NAMES.find((item) => item.toLowerCase() === value.toLowerCase());
+    if (match && match !== "All") return match;
+  }
+  const text = title.toLowerCase();
+  if (/welcome|system|account|security|next01 update/.test(text)) return "System";
+  if (/reward|point|prize/.test(text)) return "Rewards";
+  if (/offer|discount|merchant|deal/.test(text)) return "Offers";
+  if (/survey|poll|opinion/.test(text)) return "Surveys";
+  return "Other";
+}
 
 export default function NotificationCentre({
   onBack,
@@ -35,6 +52,45 @@ export default function NotificationCentre({
     null
   );
   const [markingAll, setMarkingAll] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [categoryFilter, setCategoryFilter] = useState("All");
+  const [rememberFilters, setRememberFilters] = useState(false);
+  const [preferencesLoaded, setPreferencesLoaded] = useState(false);
+
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (!user) { setPreferencesLoaded(true); return; }
+    try {
+      const raw = localStorage.getItem(`next01:notification-view:${user.uid}`);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as { remember?: boolean; status?: string; category?: string };
+      if (saved.remember !== true) return;
+      setRememberFilters(true);
+      if (saved.status === "all" || saved.status === "unread" || saved.status === "read") {
+        setStatusFilter(saved.status);
+      }
+      if (saved.category && CATEGORY_NAMES.includes(saved.category)) setCategoryFilter(saved.category);
+    } catch (storageError) {
+      console.warn("Notification view preferences unavailable:", storageError);
+    } finally {
+      setPreferencesLoaded(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (!user || !preferencesLoaded) return;
+    try {
+      const key = `next01:notification-view:${user.uid}`;
+      if (rememberFilters) {
+        localStorage.setItem(key, JSON.stringify({ remember: true, status: statusFilter, category: categoryFilter }));
+      } else {
+        localStorage.removeItem(key);
+      }
+    } catch (storageError) {
+      console.warn("Unable to save notification view preferences:", storageError);
+    }
+  }, [statusFilter, categoryFilter, rememberFilters, preferencesLoaded]);
 
   useEffect(() => {
     const user = auth.currentUser;
@@ -70,7 +126,9 @@ export default function NotificationCentre({
                   ? data.message
                   : "",
               isRead: data.isRead === true,
-              createdAt: data.createdAt ?? null,
+              createdAt: data.createdAt instanceof Object && typeof data.createdAt.toMillis === "function"
+                ? (data.createdAt as Timestamp) : null,
+              category: resolveCategory(data.category, typeof data.title === "string" ? data.title : ""),
             };
           });
 
@@ -194,6 +252,10 @@ export default function NotificationCentre({
   ).length;
 
   const isUpdating = markingAll || updatingId !== null;
+  const visibleNotifications = notifications.filter((notification) =>
+    (statusFilter === "all" || (statusFilter === "unread" ? !notification.isRead : notification.isRead)) &&
+    (categoryFilter === "All" || notification.category === categoryFilter)
+  );
 
   return (
     <main
@@ -319,6 +381,15 @@ export default function NotificationCentre({
               and announcements will appear here.
             </p>
           </section>
+        ) : visibleNotifications.length === 0 && !error ? (
+          <section role="status" style={{ backgroundColor: "#FFFFFF", color: "#050A30", padding: "24px", borderRadius: "14px", marginTop: "25px", textAlign: "center" }}>
+            <h2>No matching notifications</h2>
+            <p>Try another status or category filter.</p>
+            <button type="button" onClick={() => { setStatusFilter("all"); setCategoryFilter("All"); }}
+              style={{ backgroundColor: "#FBC713", border: "none", borderRadius: "8px", padding: "12px 18px", fontWeight: "bold", cursor: "pointer" }}>
+              Clear Filters
+            </button>
+          </section>
         ) : (
           <div
             style={{
@@ -327,7 +398,7 @@ export default function NotificationCentre({
               marginTop: "25px",
             }}
           >
-            {notifications.map((notification) => (
+            {visibleNotifications.map((notification) => (
               <article
                 key={notification.id}
                 style={{
